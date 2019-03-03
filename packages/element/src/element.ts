@@ -174,14 +174,14 @@ export default class Element extends HTMLElement implements CustomElement {
   // a falsy value to prevent shadow root creation.
   static shadowRootOptions?: ShadowRootInit = { mode: 'open' };
 
+  // The component that is currently updating.
+  static updating?: CustomElement;
+
   // The current props values.
   _props: Props = {};
 
   // The current props values that have changed since the last update.
   _propsChanged: Props = {};
-
-  // Whether or not an update is currently being handled.
-  _isUpdating: boolean = false;
 
   renderRoot: ShadowRoot | HTMLElement;
 
@@ -232,13 +232,13 @@ export default class Element extends HTMLElement implements CustomElement {
     //
     // - We're already updating.
     // - We're not connected.
-    if (this._isUpdating || !this.parentNode) {
+    if (Element.updating === this || !this.parentNode) {
       return;
     }
 
     // This flag prevents infinite loops if another update is triggered while
     // performing the current update.
-    this._isUpdating = true;
+    Element.updating = this;
 
     // We execute the update process at the end of the current microtask so
     // we can debounce any subsequent updates.
@@ -249,7 +249,7 @@ export default class Element extends HTMLElement implements CustomElement {
         this.rendered(this._propsChanged);
       }
       this._propsChanged = {};
-      this._isUpdating = false;
+      Element.updating = null;
     });
   }
 
