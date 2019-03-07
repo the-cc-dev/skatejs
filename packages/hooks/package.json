@@ -1,0 +1,7 @@
+{
+  "description": "Like React's hooks, but for web components.",
+  "name": "@skatejs/hooks",
+  "peerDependencies": {
+    "@skatejs/element": "*"
+  }
+}
