@@ -1,50 +1,18 @@
+import doIfIndex from './do-if-index';
+import ensureArray from './ensure-array';
 import makeNodeList from './make-node-list';
 import parse from './parse';
-
-const {
+import { reParentAll, reParentOne } from './parent';
+import { _childNodes } from './symbols';
+import {
   document,
   DocumentFragment,
   HTMLElement,
   NodeFilter,
   NodeList
-} = window;
-const { SHOW_ELEMENT } = NodeFilter;
-const _childNodes = Symbol();
+} from './window';
 
-function createTreeWalker(root) {
-  return document.createTreeWalker(root, SHOW_ELEMENT);
-}
-
-function doIfIndex(host, refNode, callback, otherwise) {
-  const chren = host.childNodes;
-  const index = chren.indexOf(refNode);
-
-  if (index > -1) {
-    callback(index, chren);
-  } else if (otherwise) {
-    otherwise(chren);
-  }
-}
-
-function ensureArray(refNode) {
-  return refNode instanceof DocumentFragment
-    ? Array.from(refNode.childNodes)
-    : [refNode];
-}
-
-function reParentOne(refNode, newHost) {
-  Object.defineProperty(refNode, 'parentNode', {
-    configurable: true,
-    value: newHost
-  });
-  return refNode;
-}
-
-function reParentAll(nodeList, newHost) {
-  return nodeList.map(n => reParentOne(n, newHost));
-}
-
-export default (Base = HTMLElement) =>
+export default Base =>
   class extends Base {
     get childNodes() {
       return this[_childNodes] || (this[_childNodes] = []);
@@ -91,6 +59,25 @@ export default (Base = HTMLElement) =>
       );
       return newNode;
     }
+    attachShadow({ mode }) {
+      // Currently we just use an extra element. Working around this involves
+      // using a proxy element that modifies the host, but re-parents each node
+      // to look like the parent is the shadow root.
+      const shadowRoot = document.createElement('shadowroot');
+
+      // Remove existing content and add the shadow root to append to. Appending
+      // the shadow root isn't necessary if using the proxy as noted above, but
+      // resetting the innerHTML is.
+      super.innerHTML = '';
+      super.appendChild(shadowRoot);
+
+      // Emulate native { mode }.
+      if (mode === 'open') {
+        Object.defineProperty(this, 'shadowRoot', { value: shadowRoot });
+      }
+
+      return shadowRoot;
+    }
     insertBefore(newNode, refNode) {
       newNode = reParentAll(ensureArray(newNode), this);
       doIfIndex(
@@ -126,24 +113,5 @@ export default (Base = HTMLElement) =>
         );
       });
       return refNode;
-    }
-    attachShadow({ mode }) {
-      // Currently we just use an extra element. Working around this involves
-      // using a proxy element that modifies the host, but re-parents each node
-      // to look like the parent is the shadow root.
-      const shadowRoot = document.createElement('shadowroot');
-
-      // Remove existing content and add the shadow root to append to. Appending
-      // the shadow root isn't necessary if using the proxy as noted above, but
-      // resetting the innerHTML is.
-      super.innerHTML = '';
-      super.appendChild(shadowRoot);
-
-      // Emulate native { mode }.
-      if (mode === 'open') {
-        Object.defineProperty(this, 'shadowRoot', { value: shadowRoot });
-      }
-
-      return shadowRoot;
     }
   };
